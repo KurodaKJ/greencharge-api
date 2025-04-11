@@ -13,27 +13,8 @@ import (
 	// Import the v4 messaging package explicitly if needed, or rely on firebase.App methods
 	// Note: Often the client type comes directly from the app object, so a separate v4/messaging import might not be needed here.
 	// Let's adjust the return type using the alias 'firebase' for the core v4 package.
-	"firebase.google.com/go/v4/messaging" // We need this for the return type signature if not using the alias method
 	"google.golang.org/api/option"
 )
-
-// Modified function signature to return the v4 messaging client type
-func initFirebase() *messaging.Client { // Adjusted return type
-	opt := option.WithCredentialsFile("YOUR_CREDENTIAL_PATH") // Replace with the actual path
-	// Use the v4 firebase package (aliased)
-	app, err := firebase.NewApp(context.Background(), nil, opt)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
-
-	// This returns *firebase.messaging.Client (v4 type)
-	fcmClient, err := app.Messaging(context.Background())
-	if err != nil {
-		log.Fatalf("error initializing fcm client: %v\n", err)
-	}
-	// Now the return type matches the function signature
-	return fcmClient
-}
 
 func main() {
 	// Get Firebase config

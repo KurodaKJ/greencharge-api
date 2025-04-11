@@ -63,7 +63,7 @@ func InitRoutes(router *mux.Router) {
 	router.HandleFunc("/ws", wsHandler)
 
 	// Define a REST endpoint on "/rest" which returns a JSON message.
-	router.HandleFunc("/restyet", restHandler).Methods("GET")
+	router.HandleFunc("/restyet", restHandler).Methods("POST")
 
 	// Add a shutdown endpoint
 	router.HandleFunc("/shutdown", shutdownHandler).Methods("GET")
@@ -128,7 +128,37 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 // restHandler handles requests to the "/rest" path. It returns a JSON message.
 func restHandler(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(Message{Message: "Hello from REST"})
+	var message MessageWithToken
+
+	// Decode the JSON from the request body
+	if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
+		http.Error(w, "Could not decode request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check if a notification should be sent
+	if shouldSendNotification(message.Message, message.Token) {
+		// Prepare and send the notification
+		err := SendNotification(prepareMessage(message.Token, message.Title, message.Body))
+		if err != nil {
+			log.Printf("error sending notification: %v", err)
+			http.Error(w, "Failed to send notification", http.StatusInternalServerError)
+			return
+		}
+
+		// Respond with a success message
+		response := Message{
+			Message: message.Message,
+			Action:  "message_received",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("error encoding response: %v", err)
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
 }
 
 func shutdownHandler(w http.ResponseWriter, r *http.Request) {

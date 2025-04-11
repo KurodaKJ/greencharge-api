@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -11,11 +12,6 @@ import (
 	"greencharge-api/handlers"
 	"greencharge-api/server" // Assuming setupRouter comes from here or similar
 
-	// Note: firebase imports might not be directly needed in the test file anymore
-	// if the client isn't used directly here after the setup fix.
-	// Keep them if handlers or server packages expose types requiring them.
-	// Keep if conf type is needed
-	// "firebase.google.com/go/messaging" // Likely not needed directly here anymore
 	firebase "firebase.google.com/go/v4"
 	"google.golang.org/api/option"
 
@@ -78,28 +74,38 @@ func TestRootHandler(t *testing.T) {
 
 // Test the REST endpoint
 func TestRestHandler(t *testing.T) {
-	server := setupTestServer(t) // Pass t
+	server := setupTestServer(t)
 	defer server.Close()
 
-	resp, err := http.Get(server.URL + "/restyet")
+	// Prepare the JSON payload
+	payload := map[string]string{
+		"message": "alert",
+		"title":   "Test Alert 🚨",
+		"body":    "This is a test notification.",
+		"token":   "dtPub3DnRQWt5E3fDzvzOZ:APA91bGm8XrMgqBEVZ9wp5v6RAXeH5fDwuP_57h43xtL9f3O8nWNmLwCBfAcBuVsZfKXZ2DRPt7BdWdct2dSF2DP-3WQdrxC6Pp8xCKBz31FtOKKjPY3k7Y",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+
+	// Create a new POST request with the JSON payload
+	resp, err := http.Post(server.URL+"/restyet", "application/json", io.NopCloser(bytes.NewReader(payloadBytes)))
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
 
 	var msg handlers.Message
 	err = json.NewDecoder(resp.Body).Decode(&msg)
 	if err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
+		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	expected := "Hello from REST"
-	if msg.Message != expected {
-		t.Errorf("Expected message %q, got %q", expected, msg.Message)
+	expectedAction := "message_received"
+	if msg.Action != expectedAction {
+		t.Errorf("Expected action %q, got %q", expectedAction, msg.Action)
 	}
 }
 
